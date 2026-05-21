@@ -1,0 +1,6 @@
+venv_wx/
+__pycache__/
+*.pyc
+
+# Generated output files
+*_whisperx.json
