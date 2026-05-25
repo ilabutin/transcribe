@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Transcribe audio/video with speaker diarization using WhisperX.
+Transcribe audio/video with speaker diarization using WhisperMLX (Apple Silicon optimized).
 
 Usage:
     python transcribe_wx.py <input_file> [output_file] [--lang ru] [--speakers N] [--hf-token TOKEN]
 
-Output format (same as before):
+Output format:
     start_sec end_sec SPEAKER_XX text
 """
 
@@ -90,28 +90,26 @@ def main():
             with open(token_file) as f:
                 hf_token = f.read().strip()
 
-    import whisperx
+    import whispermlx
     import torch
 
-    # CTranslate2 (Whisper transcription) does not support MPS — use CPU on Apple Silicon.
-    # PyTorch models (alignment, diarization) support MPS and run much faster on Apple Silicon.
+    # MLX runs transcription on Apple Silicon GPU via unified memory.
+    # PyTorch models (alignment, diarization) use MPS on Apple Silicon.
     if torch.cuda.is_available():
-        ct2_device = "cuda"
-        compute_type = "float16"
+        mlx_device = "cuda"
         torch_device = "cuda"
     else:
-        ct2_device = "cpu"
-        compute_type = "int8"
+        mlx_device = "mlx"
         torch_device = "mps" if torch.backends.mps.is_available() else "cpu"
 
-    log(f"CT2 device: {ct2_device}, torch device: {torch_device}, model: {args.model}, language: {args.lang or 'auto-detect'}")
+    log(f"MLX device: {mlx_device}, torch device: {torch_device}, model: {args.model}, language: {args.lang or 'auto-detect'}")
 
     # Step 1: Transcribe
     log("Loading Whisper model...")
-    model = whisperx.load_model(args.model, ct2_device, compute_type=compute_type, language=args.lang)
+    model = whispermlx.load_model(args.model, mlx_device, language=args.lang)
 
     log("Loading audio...")
-    audio = whisperx.load_audio(input_path)
+    audio = whispermlx.load_audio(input_path)
     duration_sec = len(audio) / 16000
     duration_min = int(duration_sec // 60)
     log(f"Audio duration: {duration_min}m {duration_sec % 60:.0f}s")
@@ -122,15 +120,13 @@ def main():
     log(f"Transcribed {len(result['segments'])} segments, detected language: {detected_lang}")
 
     del model
-    if ct2_device == "cuda":
-        torch.cuda.empty_cache()
 
     # Step 2: Align (word-level timestamps)
     log("Aligning word timestamps...")
     try:
-        model_a, metadata = whisperx.load_align_model(language_code=detected_lang, device=torch_device)
-        result = whisperx.align(result["segments"], model_a, metadata, audio, torch_device,
-                                return_char_alignments=False)
+        model_a, metadata = whispermlx.load_align_model(language_code=detected_lang, device=torch_device)
+        result = whispermlx.align(result["segments"], model_a, metadata, input_path, torch_device,
+                                  return_char_alignments=False)
         del model_a
     except Exception as e:
         log(f"Alignment skipped: {e}")
@@ -143,13 +139,13 @@ def main():
         else:
             log("Running speaker diarization...")
             try:
-                from whisperx.diarize import DiarizationPipeline
+                from whispermlx.diarize import DiarizationPipeline
                 diarize_model = DiarizationPipeline(token=hf_token, device=torch_device)
                 kwargs = {}
                 if args.speakers:
                     kwargs["num_speakers"] = args.speakers
                 diarize_segments = diarize_model(audio, **kwargs)
-                result = whisperx.assign_word_speakers(diarize_segments, result)
+                result = whispermlx.assign_word_speakers(diarize_segments, result)
                 log("Diarization complete")
             except Exception as e:
                 log(f"Diarization failed: {e}")
