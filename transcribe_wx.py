@@ -93,20 +93,18 @@ def main():
     import whispermlx
     import torch
 
-    # MLX runs transcription on Apple Silicon GPU via unified memory.
-    # PyTorch models (alignment, diarization) use MPS on Apple Silicon.
+    # MLX transcription backend is always used by whispermlx on Apple Silicon.
+    # The device parameter controls PyTorch models (VAD, alignment, diarization).
     if torch.cuda.is_available():
-        mlx_device = "cuda"
         torch_device = "cuda"
     else:
-        mlx_device = "mlx"
         torch_device = "mps" if torch.backends.mps.is_available() else "cpu"
 
-    log(f"MLX device: {mlx_device}, torch device: {torch_device}, model: {args.model}, language: {args.lang or 'auto-detect'}")
+    log(f"Torch device: {torch_device}, model: {args.model}, language: {args.lang or 'auto-detect'}")
 
     # Step 1: Transcribe
     log("Loading Whisper model...")
-    model = whispermlx.load_model(args.model, mlx_device, language=args.lang)
+    model = whispermlx.load_model(args.model, torch_device, language=args.lang)
 
     log("Loading audio...")
     audio = whispermlx.load_audio(input_path)
@@ -115,7 +113,7 @@ def main():
     log(f"Audio duration: {duration_min}m {duration_sec % 60:.0f}s")
 
     log("Transcribing...")
-    result = model.transcribe(audio, batch_size=16, language=args.lang, print_progress=True)
+    result = model.transcribe(audio, language=args.lang, print_progress=True)
     detected_lang = result.get("language", args.lang or "ru")
     log(f"Transcribed {len(result['segments'])} segments, detected language: {detected_lang}")
 
