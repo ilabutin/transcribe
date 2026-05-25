@@ -70,6 +70,7 @@ def main():
     parser.add_argument("--speakers", type=int, default=None, help="Number of speakers (auto-detect if omitted)")
     parser.add_argument("--hf-token", default=None, help="HuggingFace token for diarization models")
     parser.add_argument("--no-diarize", action="store_true", help="Skip diarization (transcription only)")
+    parser.add_argument("--save-json", action="store_true", help="Save raw WhisperX segments as JSON")
     parser.add_argument("--model", default="large-v3", help="Whisper model (default: large-v3)")
     args = parser.parse_args()
 
@@ -111,9 +112,12 @@ def main():
 
     log("Loading audio...")
     audio = whisperx.load_audio(input_path)
+    duration_sec = len(audio) / 16000
+    duration_min = int(duration_sec // 60)
+    log(f"Audio duration: {duration_min}m {duration_sec % 60:.0f}s")
 
     log("Transcribing...")
-    result = model.transcribe(audio, batch_size=16, language=args.lang)
+    result = model.transcribe(audio, batch_size=16, language=args.lang, print_progress=True)
     detected_lang = result.get("language", args.lang or "ru")
     log(f"Transcribed {len(result['segments'])} segments, detected language: {detected_lang}")
 
@@ -150,11 +154,12 @@ def main():
             except Exception as e:
                 log(f"Diarization failed: {e}")
 
-    # Save intermediate JSON
-    json_path = base + "_whisperx.json"
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(result["segments"], f, ensure_ascii=False, indent=2)
-    log(f"Raw segments saved to {json_path}")
+    # Save intermediate JSON (only if explicitly requested)
+    if args.save_json:
+        json_path = base + "_whisperx.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(result["segments"], f, ensure_ascii=False, indent=2)
+        log(f"Raw segments saved to {json_path}")
 
     # Step 4: Combine and write output
     segments = result["segments"]

@@ -8,7 +8,8 @@
 #   --lang LANG        Language code (auto-detect if omitted)
 #   --speakers N       Number of speakers (auto-detect if omitted)
 #   --hf-token TOKEN   HuggingFace token (or set HF_TOKEN env var)
-#   --no-diarize       Skip speaker diarization
+#   --no-diarize       Skip speaker diarization (faster, single-speaker talks)
+#   --save-json        Save raw WhisperX segments as JSON alongside output
 #   --model MODEL      Whisper model (default: large-v3)
 #   --out FILE         Output file path (single-file mode only)
 #
@@ -26,7 +27,7 @@ PYTHON="$SCRIPT_DIR/venv_wx/bin/python"
 PYTHON_SCRIPT="$SCRIPT_DIR/transcribe_wx.py"
 
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 <input_file> [<input_file2> ...] [--lang LANG] [--speakers N] [--hf-token TOKEN] [--model large-v3] [--out FILE]"
+    echo "Usage: $0 <input_file> [<input_file2> ...] [--lang LANG] [--speakers N] [--no-diarize] [--save-json] [--hf-token TOKEN] [--model large-v3] [--out FILE]"
     exit 1
 fi
 
