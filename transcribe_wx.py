@@ -35,7 +35,7 @@ def combine_segments(segments):
         start = seg["start"]
         end = seg["end"]
 
-        if speaker != cur_speaker or (cur_text and cur_text[-1][-1] in ".!?"):
+        if speaker != cur_speaker or (cur_text and cur_text[-1] and cur_text[-1][-1] in ".!?"):
             if cur_text:
                 combined.append({
                     "start": cur_start,
